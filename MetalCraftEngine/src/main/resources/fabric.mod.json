@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "metalcraft-engine",
+  "version": "${version}",
+  "name": "MetalCraft Engine",
+  "description": "macOS-first rendering optimization system: Mac-tuned OpenGL, Apple Silicon unified-memory optimizations, and an experimental Metal terrain backend with automatic OpenGL fallback. Original implementation — no code from other renderer mods.",
+  "authors": ["MetalCraft Launcher contributors"],
+  "contact": {
+    "sources": "https://github.com/Julianmank-stack/minecraft-client"
+  },
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["dev.metalcraft.engine.MetalCraftMod"]
+  },
+  "mixins": ["metalcraft.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": ">=1.20",
+    "java": ">=21"
+  },
+  "conflicts": {
+    "sodium": "*"
+  },
+  "custom": {
+    "metalcraft:platform": "macos-only"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "dev.metalcraft.engine.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "MixinWindowSwap",
+    "MixinChunkUpload"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

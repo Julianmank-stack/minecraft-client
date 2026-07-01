@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+
+# Swift / Xcode
+.build/
+DerivedData/
+*.xcodeproj
+*.xcworkspace
+Package.resolved
+
+# Gradle / Java
+MetalCraftEngine/.gradle/
+MetalCraftEngine/build/
+MetalCraftEngine/run/
+*.class
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Logs & local state
+*.log
+local.properties
