@@ -140,7 +140,11 @@ final class LaunchEngine {
             "assets_root": Paths.assets.path,
             "assets_index_name": version.assetIndex.id,
             "resolution_width": String(instance.resolution.width),
-            "resolution_height": String(instance.resolution.height)
+            "resolution_height": String(instance.resolution.height),
+            "user_properties": "{}",   // legacy (< 1.13) placeholder
+            "natives_directory": nativesDir.path,
+            "launcher_name": "metalcraft",
+            "launcher_version": "0.1"
         ]
 
         var gameArgs = buildGameArguments(version: version, substitutions: substitutions)

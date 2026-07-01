@@ -21,7 +21,7 @@ struct LoginView: View {
 
             if let deviceCode {
                 VStack(spacing: 12) {
-                    Text("Enter this code at microsoft.com/link")
+                    Text("Enter this code at \(URL(string: deviceCode.verificationUri)?.host ?? "microsoft.com")")
                         .foregroundStyle(.secondary)
                     Text(deviceCode.userCode)
                         .font(.system(size: 34, design: .monospaced).weight(.bold))

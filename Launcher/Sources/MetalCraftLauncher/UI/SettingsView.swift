@@ -6,6 +6,7 @@ struct SettingsView: View {
     @AppStorage("defaultRamMB") private var defaultRamMB = 4096
     @AppStorage("notifyLaunchReady") private var notifyLaunchReady = true
     @AppStorage("notifyCrashes") private var notifyCrashes = true
+    @AppStorage("msaClientID") private var msaClientID = ""
 
     var body: some View {
         Form {
@@ -37,6 +38,11 @@ struct SettingsView: View {
                 } else {
                     Button("Sign In…") { appState.presentLogin = true }
                 }
+                TextField("Custom Azure client ID (optional)", text: $msaClientID,
+                          prompt: Text("Leave empty to use the built-in Microsoft sign-in"))
+                Text("Advanced: only needed if you registered your own Azure AD app (see docs/AZURE_APP_SETUP.md). Takes effect on the next sign-in.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Storage") {

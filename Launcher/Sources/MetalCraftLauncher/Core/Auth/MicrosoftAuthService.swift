@@ -4,12 +4,49 @@ import Foundation
 /// Device-code OAuth flow: the user signs in on microsoft.com in their browser;
 /// this app never sees a password and stores only OAuth tokens (in the Keychain).
 ///
+/// Two modes, both 100% official Microsoft sign-in:
+///  - Default: Microsoft's public Xbox Live client via login.live.com — works
+///    out of the box, the same flow used by other third-party launchers
+///    (documented on the community auth wiki).
+///  - Custom: your own Azure AD app registration via login.microsoftonline.com,
+///    set in Settings → Account (see docs/AZURE_APP_SETUP.md).
+///
 /// Cracked/offline accounts are intentionally unsupported.
 final class MicrosoftAuthService {
-    /// Azure AD application (public client, "Allow public client flows" enabled,
-    /// approved for the Minecraft API). Set your own client id here.
-    static let clientID = ProcessInfo.processInfo.environment["METALCRAFT_MSA_CLIENT_ID"]
-        ?? "00000000-0000-0000-0000-000000000000"
+
+    /// Microsoft's public Xbox Live client id (first-party, pre-approved for
+    /// the Minecraft services API).
+    private static let xboxLiveClientID = "00000000402b5328"
+    private static let xboxLiveScope = "service::user.auth.xboxlive.com::MBI_SSL"
+
+    private struct Endpoints {
+        let deviceCodeURL: String
+        let tokenURL: String
+        let clientID: String
+        let scope: String
+        let isAzure: Bool
+    }
+
+    private static func endpoints() -> Endpoints {
+        let custom = UserDefaults.standard.string(forKey: "msaClientID")?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let custom, !custom.isEmpty {
+            return Endpoints(
+                deviceCodeURL: "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode",
+                tokenURL: "https://login.microsoftonline.com/consumers/oauth2/v2.0/token",
+                clientID: custom,
+                scope: "XboxLive.signin offline_access",
+                isAzure: true
+            )
+        }
+        return Endpoints(
+            deviceCodeURL: "https://login.live.com/oauth20_connect.srf",
+            tokenURL: "https://login.live.com/oauth20_token.srf",
+            clientID: xboxLiveClientID,
+            scope: xboxLiveScope,
+            isAzure: false
+        )
+    }
 
     private let keychain: KeychainStore
     private let session: URLSession
@@ -26,6 +63,7 @@ final class MicrosoftAuthService {
         case noXboxProfile
         case childAccount
         case doesNotOwnMinecraft
+        case service(String, String?)
         case http(Int)
 
         var errorDescription: String? {
@@ -35,6 +73,8 @@ final class MicrosoftAuthService {
             case .noXboxProfile: "This Microsoft account has no Xbox profile. Create one at xbox.com and try again."
             case .childAccount: "Child accounts must be added to a family by an adult before playing."
             case .doesNotOwnMinecraft: "This account doesn't own Minecraft: Java Edition."
+            case .service(let code, let detail):
+                detail.map { "\($0) (\(code))" } ?? "Microsoft sign-in error: \(code)"
             case .http(let code): "Authentication service error (HTTP \(code))."
             }
         }
@@ -60,11 +100,13 @@ final class MicrosoftAuthService {
     /// Step 1: begin the device-code flow. The UI shows `userCode` and opens
     /// `verificationUri` in the default browser.
     func requestDeviceCode() async throws -> DeviceCode {
-        try await postForm(
-            url: "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode",
+        let ep = Self.endpoints()
+        return try await postForm(
+            url: ep.deviceCodeURL,
             body: [
-                "client_id": Self.clientID,
-                "scope": "XboxLive.signin offline_access"
+                "client_id": ep.clientID,
+                "scope": ep.scope,
+                "response_type": "device_code"
             ]
         )
     }
@@ -88,13 +130,14 @@ final class MicrosoftAuthService {
         }
         guard let refresh = keychain.loadString(forKey: "\(stored.id.uuidString).msa") else { return nil }
 
+        let ep = Self.endpoints()
         let msa: MSAToken = try await postForm(
-            url: "https://login.microsoftonline.com/consumers/oauth2/v2.0/token",
+            url: ep.tokenURL,
             body: [
-                "client_id": Self.clientID,
+                "client_id": ep.clientID,
                 "grant_type": "refresh_token",
                 "refresh_token": refresh,
-                "scope": "XboxLive.signin offline_access"
+                "scope": ep.scope
             ]
         )
         try keychain.saveString(msa.refreshToken, forKey: "\(stored.id.uuidString).msa")
@@ -132,41 +175,38 @@ final class MicrosoftAuthService {
     }
 
     private func pollForMSAToken(deviceCode: DeviceCode) async throws -> MSAToken {
+        let ep = Self.endpoints()
+        var interval = max(deviceCode.interval, 1)
         let deadline = Date().addingTimeInterval(TimeInterval(deviceCode.expiresIn))
         while Date() < deadline {
-            try await Task.sleep(for: .seconds(deviceCode.interval))
+            try await Task.sleep(for: .seconds(interval))
             do {
                 return try await postForm(
-                    url: "https://login.microsoftonline.com/consumers/oauth2/v2.0/token",
+                    url: ep.tokenURL,
                     body: [
-                        "client_id": Self.clientID,
+                        "client_id": ep.clientID,
                         "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
                         "device_code": deviceCode.deviceCode
                     ]
                 )
             } catch PendingAuth.pending {
                 continue // user hasn't finished in the browser yet
+            } catch PendingAuth.slowDown {
+                interval += 5
+                continue
             }
         }
         throw AuthError.timedOut
     }
 
-    private enum PendingAuth: Error { case pending }
+    private enum PendingAuth: Error { case pending, slowDown }
 
     private func signInWithMSA(accessToken: String, reuseID: UUID? = nil) async throws -> MinecraftAccount {
-        // Xbox Live user token
-        let xbl: XboxResponse = try await postJSON(
-            url: "https://user.auth.xboxlive.com/user/authenticate",
-            body: [
-                "Properties": [
-                    "AuthMethod": "RPS",
-                    "SiteName": "user.auth.xboxlive.com",
-                    "RpsTicket": "d=\(accessToken)"
-                ],
-                "RelyingParty": "http://auth.xboxlive.com",
-                "TokenType": "JWT"
-            ]
-        )
+        // Xbox Live user token. The RpsTicket prefix differs by token source
+        // ("t=" for login.live.com Xbox tokens, "d=" for Azure AD tokens), so
+        // try the mode-appropriate one first and fall back to the other.
+        let prefixes = Self.endpoints().isAzure ? ["d=", "t="] : ["t=", "d="]
+        let xbl = try await xblAuthenticate(accessToken: accessToken, prefixes: prefixes)
 
         // XSTS token
         let xsts: XboxResponse
@@ -218,6 +258,29 @@ final class MicrosoftAuthService {
         return account
     }
 
+    private func xblAuthenticate(accessToken: String, prefixes: [String]) async throws -> XboxResponse {
+        var lastError: Error = AuthError.http(400)
+        for prefix in prefixes {
+            do {
+                return try await postJSON(
+                    url: "https://user.auth.xboxlive.com/user/authenticate",
+                    body: [
+                        "Properties": [
+                            "AuthMethod": "RPS",
+                            "SiteName": "user.auth.xboxlive.com",
+                            "RpsTicket": "\(prefix)\(accessToken)"
+                        ],
+                        "RelyingParty": "http://auth.xboxlive.com",
+                        "TokenType": "JWT"
+                    ]
+                )
+            } catch {
+                lastError = error
+            }
+        }
+        throw lastError
+    }
+
     // MARK: - Wire models
 
     private struct XboxResponse: Decodable {
@@ -262,17 +325,30 @@ final class MicrosoftAuthService {
         var request = URLRequest(url: URL(string: url)!)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        var allowed = CharacterSet.alphanumerics
+        allowed.insert(charactersIn: "-._~")
         request.httpBody = body
-            .map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? $0.value)" }
+            .map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: allowed) ?? $0.value)" }
             .joined(separator: "&")
             .data(using: .utf8)
 
         let (data, response) = try await session.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        if status == 400,
-           let err = try? decoder.decode([String: String].self, from: data),
-           err["error"] == "authorization_pending" {
-            throw PendingAuth.pending
+
+        if status >= 400,
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let code = obj["error"] as? String {
+            switch code {
+            case "authorization_pending": throw PendingAuth.pending
+            case "slow_down": throw PendingAuth.slowDown
+            default:
+                // Surface the first line of Microsoft's description — the rest
+                // is correlation ids and timestamps nobody needs to read.
+                let detail = (obj["error_description"] as? String)?
+                    .components(separatedBy: "\r\n").first?
+                    .components(separatedBy: ". ").first
+                throw AuthError.service(code, detail)
+            }
         }
         guard (200..<300).contains(status) else { throw AuthError.http(status) }
         return try decoder.decode(T.self, from: data)

@@ -28,7 +28,9 @@ Mac-first rendering optimization system, **MetalCraft Engine**.
 - **Prism Launcher import** — detect and import existing Prism instances
   (`instance.cfg` + `mmc-pack.json`), keeping them fully editable.
 - **Microsoft account auth only** — OAuth 2.0 device-code flow → Xbox Live → XSTS →
-  Minecraft Services. Tokens live in the macOS Keychain. No cracked accounts, ever.
+  Minecraft Services. Works out of the box via Microsoft's public Xbox Live client
+  (optional custom Azure app: [`docs/AZURE_APP_SETUP.md`](docs/AZURE_APP_SETUP.md)).
+  Tokens live in the macOS Keychain. No cracked accounts, ever.
 - **Real launch flow** — official Piston-Meta manifests, SHA-1 verified downloads of
   client jar / libraries / assets / natives, correct classpath and argument
   substitution, live logs, readable crash reports, Repair Instance.
