@@ -96,6 +96,7 @@ struct DashboardView: View {
                 value: appState.hardware.gpuName,
                 tint: .purple
             )
+            ThermalBadge(state: appState.thermalState)
             Spacer()
         }
     }

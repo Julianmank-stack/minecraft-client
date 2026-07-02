@@ -56,6 +56,8 @@ final class InstanceStore {
         copy.resolution = instance.resolution
         copy.renderer = Instance.Renderer(mode: instance.renderer.mode)
         copy.performanceProfile = instance.performanceProfile
+        copy.fpsCap = instance.fpsCap
+        copy.thermalGuard = instance.thermalGuard
         copy.notes = instance.notes
         try fm.createDirectory(at: copy.dir, withIntermediateDirectories: true)
         try fm.copyItem(at: instance.gameDir, to: copy.gameDir)

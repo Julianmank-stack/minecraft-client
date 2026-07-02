@@ -86,6 +86,11 @@ struct Instance: Codable, Identifiable, Equatable {
     var resolution: Resolution = Resolution(width: 1280, height: 720, fullscreen: false)
     var renderer: Renderer = Renderer(mode: .macOptimizedGL)
     var performanceProfile: PerformanceProfile = .balanced
+    /// Frame cap written to options.txt before launch (nil = leave untouched).
+    var fpsCap: Int?
+    /// Lower the cap automatically when macOS reports thermal pressure
+    /// (nil = on; opt-out setting).
+    var thermalGuard: Bool?
     var modrinth: ModrinthLink?
     var importedFrom: ImportOrigin?
     var notes: String = ""

@@ -52,6 +52,7 @@ final class AppState: ObservableObject {
     @Published var liveLogLines: [LogLine] = []
     @Published var lastCrashDiagnosis: CrashDiagnosis?
     @Published var hardware: HardwareReport = .current()
+    @Published var thermalState: ProcessInfo.ThermalState = ProcessInfo.processInfo.thermalState
 
     // Services
     let keychain = KeychainStore()
@@ -72,6 +73,11 @@ final class AppState: ObservableObject {
     }
 
     func bootstrap() async {
+        NotificationCenter.default.addObserver(
+            forName: ProcessInfo.thermalStateDidChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.thermalState = ProcessInfo.processInfo.thermalState }
+        }
         do {
             try Paths.ensureDirectories()
             instances = try instanceStore.loadAll()
@@ -88,13 +94,25 @@ final class AppState: ObservableObject {
         guard let instance = selectedInstance else { return }
         guard let account else { presentLogin = true; return }
 
+        // FPS cap + Thermal Guard: tighten the cap when macOS already reports
+        // thermal pressure, so a hot chassis doesn't throttle mid-game.
+        let guardOn = instance.thermalGuard ?? true
+        let isHot = thermalState == .serious || thermalState == .critical
+        let optionsPatch: OptionsPatcher.Patch
+        if guardOn && isHot {
+            optionsPatch = .init(fpsCap: min(instance.fpsCap ?? 120, 120), temporary: instance.fpsCap == nil)
+        } else {
+            optionsPatch = .init(fpsCap: instance.fpsCap, temporary: false)
+        }
+
         launchState = .preparing(progress: 0, detail: "Resolving version…")
         do {
             let session = try await launchEngine.launch(
                 instance: instance,
                 account: account,
                 rendererConfig: rendererManager.engineConfig(for: instance),
-                auth: auth
+                auth: auth,
+                optionsPatch: optionsPatch
             ) { [weak self] progress, detail in
                 Task { @MainActor in self?.launchState = .preparing(progress: progress, detail: detail) }
             } onLog: { [weak self] line in

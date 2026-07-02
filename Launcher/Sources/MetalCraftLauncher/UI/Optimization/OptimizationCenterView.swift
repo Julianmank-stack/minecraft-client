@@ -24,6 +24,7 @@ struct OptimizationCenterView: View {
             VStack(alignment: .leading, spacing: 20) {
                 header(instance)
                 presetRow(instance)
+                thermalSection(instance)
                 rendererPicker(instance)
                 memorySection(instance)
                 benchmarkSection(instance)
@@ -169,6 +170,54 @@ struct OptimizationCenterView: View {
             .opacity(availability.available ? 1 : 0.45)
         }
         .buttonStyle(.plain)
+    }
+
+    private func thermalSection(_ instance: Instance) -> some View {
+        GlassCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Heat & Frame Cap").font(.headline)
+                    Spacer()
+                    ThermalBadge(state: appState.thermalState)
+                }
+
+                Toggle("Cap frame rate", isOn: Binding(
+                    get: { instance.fpsCap != nil },
+                    set: { on in
+                        var updated = instance
+                        updated.fpsCap = on ? 165 : nil
+                        persist(updated)
+                    }
+                ))
+
+                if let cap = instance.fpsCap {
+                    Picker("Max FPS", selection: Binding(
+                        get: { cap },
+                        set: { newValue in
+                            var updated = instance
+                            updated.fpsCap = newValue
+                            persist(updated)
+                        }
+                    )) {
+                        ForEach([60, 120, 144, 165, 240], id: \.self) { Text("\($0)").tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                }
+
+                Toggle("Thermal Guard — cap at 120 FPS when this Mac launches hot", isOn: Binding(
+                    get: { instance.thermalGuard ?? true },
+                    set: { on in
+                        var updated = instance
+                        updated.thermalGuard = on
+                        persist(updated)
+                    }
+                ))
+
+                Text("Uncapped Minecraft happily renders 500+ FPS — every frame past your display's refresh is pure heat. Once the chassis saturates, macOS throttles the whole chip and your 1% lows collapse. Capping near your refresh rate keeps the chip cool so performance stays consistent. Applied to options.txt at launch; Thermal Guard changes are restored automatically once the Mac cools down.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 
     private func memorySection(_ instance: Instance) -> some View {

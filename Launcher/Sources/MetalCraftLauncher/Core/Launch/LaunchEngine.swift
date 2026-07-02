@@ -32,6 +32,7 @@ final class LaunchEngine {
         auth: MicrosoftAuthService? = nil,
         accessTokenOverride: String? = nil,
         quickJoinServer: (address: String, port: UInt16)? = nil,
+        optionsPatch: OptionsPatcher.Patch? = nil,
         onProgress: @escaping @Sendable (Double, String) -> Void,
         onLog: @escaping @Sendable (String) -> Void
     ) async throws -> GameSession {
@@ -132,6 +133,12 @@ final class LaunchEngine {
         let nativesDir = instance.dir.appendingPathComponent("natives", isDirectory: true)
         try FileManager.default.createDirectory(at: nativesDir, withIntermediateDirectories: true)
 
+        // 5b. FPS cap / Thermal Guard (options.txt maxFps)
+        if let optionsPatch {
+            let outcome = try OptionsPatcher.apply(optionsPatch, gameDir: instance.gameDir)
+            onLog("[metalcraft] \(outcome)")
+        }
+
         // 6. Renderer prep
         onProgress(0.85, "Configuring renderer…")
         let encoder = JSONEncoder()
@@ -202,6 +209,9 @@ final class LaunchEngine {
         process.executableURL = URL(fileURLWithPath: runtime.executable)
         process.arguments = jvmArgs + [mainClass] + gameArgs
         process.currentDirectoryURL = instance.gameDir
+        // Top scheduling tier: keeps the game on Apple Silicon P-cores
+        // instead of drifting to efficiency cores under system load.
+        process.qualityOfService = .userInteractive
 
         return try GameSession(process: process, onLog: onLog)
     }

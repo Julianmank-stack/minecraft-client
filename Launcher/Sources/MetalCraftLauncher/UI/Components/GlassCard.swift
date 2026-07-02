@@ -45,6 +45,31 @@ struct StatBadge: View {
     }
 }
 
+/// Live macOS thermal-pressure chip (nominal → critical).
+struct ThermalBadge: View {
+    let state: ProcessInfo.ThermalState
+
+    private var info: (label: String, icon: String, tint: Color) {
+        switch state {
+        case .nominal: ("Cool", "thermometer.low", .green)
+        case .fair: ("Warm", "thermometer.medium", .yellow)
+        case .serious: ("Hot", "thermometer.high", .orange)
+        case .critical: ("Critical", "flame.fill", .red)
+        @unknown default: ("Unknown", "thermometer.medium", .gray)
+        }
+    }
+
+    var body: some View {
+        Label(info.label, systemImage: info.icon)
+            .font(.caption.weight(.semibold))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(info.tint.opacity(0.16)))
+            .foregroundStyle(info.tint)
+            .help("macOS thermal pressure — Thermal Guard reacts to Hot and Critical")
+    }
+}
+
 /// Simple pixel-flavored placeholder icon for instances (block-style grid),
 /// standing in for real icon assets.
 struct PixelBlockIcon: View {
