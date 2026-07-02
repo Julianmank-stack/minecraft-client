@@ -91,6 +91,9 @@ struct LargeInstanceCard: View {
                             appState.selectedInstanceID = instance.id
                             Task { await appState.launchSelectedInstance() }
                         }
+                        Button("Customize (Mods, Packs, Shaders)…") {
+                            appState.customizingInstance = instance
+                        }
                         Button("Reveal in Finder") {
                             NSWorkspace.shared.activateFileViewerSelecting([instance.dir])
                         }
@@ -133,6 +136,18 @@ struct LargeInstanceCard: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(appState.selectedInstanceID == instance.id ? Color.accentColor : .clear, lineWidth: 2)
         )
+        .contextMenu {
+            Button("Launch") {
+                appState.selectedInstanceID = instance.id
+                Task { await appState.launchSelectedInstance() }
+            }
+            Button("Customize (Mods, Packs, Shaders)…") {
+                appState.customizingInstance = instance
+            }
+            Button("Reveal in Finder") {
+                NSWorkspace.shared.activateFileViewerSelecting([instance.dir])
+            }
+        }
     }
 
     private func chip(_ text: String) -> some View {

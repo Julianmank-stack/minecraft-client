@@ -16,6 +16,9 @@ struct RootView: View {
         .sheet(isPresented: $appState.presentNewInstance) {
             NewInstanceSheet()
         }
+        .sheet(item: $appState.customizingInstance) { instance in
+            CustomizeInstanceSheet(instance: instance)
+        }
         .preferredColorScheme(nil)   // follow system; dark-mode-first design
     }
 

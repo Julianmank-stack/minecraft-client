@@ -232,6 +232,9 @@ struct InstanceCard: View {
                 appState.selectedInstanceID = instance.id
                 Task { await appState.launchSelectedInstance() }
             }
+            Button("Customize (Mods, Packs, Shaders)…") {
+                appState.customizingInstance = instance
+            }
             Button("Reveal in Finder") {
                 NSWorkspace.shared.activateFileViewerSelecting([instance.dir])
             }

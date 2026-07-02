@@ -5,6 +5,7 @@ import Foundation
 final class LaunchEngine {
     private let manifests = VersionManifestService()
     private let downloads = DownloadManager()
+    private let loaders = LoaderProfileService()
     private let javaManager: JavaRuntimeManager
 
     init(javaManager: JavaRuntimeManager) {
@@ -42,6 +43,33 @@ final class LaunchEngine {
         }
         let version = try await manifests.versionJSON(for: entry)
 
+        // 2b. Mod loader profile (Fabric/Quilt). Forge/NeoForge fall back to
+        // vanilla for now with a visible warning in the log.
+        var mainClass = version.mainClass
+        var loaderLibraries: [LoaderProfileService.Profile.Library] = []
+        var loaderMavenBase = ""
+        var loaderJvmArgs: [String] = []
+        var loaderGameArgs: [String] = []
+        switch instance.loader.type {
+        case .fabric, .quilt:
+            onProgress(0.04, "Resolving \(instance.loader.type.displayName) loader…")
+            let resolved = try await loaders.resolve(
+                loader: instance.loader.type,
+                minecraftVersion: instance.minecraftVersion,
+                loaderVersion: instance.loader.version
+            )
+            mainClass = resolved.profile.mainClass
+            loaderLibraries = resolved.profile.libraries
+            loaderMavenBase = resolved.defaultMavenBase
+            loaderJvmArgs = resolved.profile.arguments?.jvm ?? []
+            loaderGameArgs = resolved.profile.arguments?.game ?? []
+            onLog("[metalcraft] Using \(instance.loader.type.displayName) loader \(resolved.loaderVersion)")
+        case .forge, .neoforge:
+            onLog("[metalcraft] WARNING: \(instance.loader.type.displayName) launching isn't supported yet — launching vanilla \(instance.minecraftVersion). Mods will NOT load.")
+        case .vanilla:
+            break
+        }
+
         // 3. Java
         onProgress(0.05, "Resolving Java runtime…")
         let runtime = try await javaManager.resolveRuntime(for: instance, versionJSON: version)
@@ -57,6 +85,14 @@ final class LaunchEngine {
                            size: version.downloads.client.size))
 
         var classpath: [String] = []
+        for library in loaderLibraries {
+            guard let path = LoaderProfileService.mavenPath(library.name) else { continue }
+            let base = library.url ?? loaderMavenBase
+            guard let url = URL(string: base.hasSuffix("/") ? base + path : base + "/" + path) else { continue }
+            let dest = Paths.libraries.appendingPathComponent(path)
+            classpath.append(dest.path)
+            items.append(.init(url: url, destination: dest, sha1: library.sha1, size: library.size))
+        }
         for library in version.libraries where library.appliesToMacOS {
             guard let artifact = library.downloads?.artifact else { continue }
             let dest = Paths.libraries.appendingPathComponent(artifact.path)
@@ -122,6 +158,7 @@ final class LaunchEngine {
             "-Dorg.lwjgl.system.allocator=system",
             "-cp", classpath.joined(separator: ":")
         ]
+        jvmArgs.append(contentsOf: loaderJvmArgs)
         jvmArgs.append(contentsOf: instance.jvmArgs)
         if rendererConfig.metal.enabled {
             jvmArgs.append("-Dmetalcraft.native=\(instance.dir.appendingPathComponent("libmetalcraft_native.dylib").path)")
@@ -148,6 +185,7 @@ final class LaunchEngine {
         ]
 
         var gameArgs = buildGameArguments(version: version, substitutions: substitutions)
+        gameArgs.append(contentsOf: loaderGameArgs)
         if instance.resolution.fullscreen {
             gameArgs.append("--fullscreen")
         } else {
@@ -162,7 +200,7 @@ final class LaunchEngine {
         onProgress(1.0, "Launching Minecraft…")
         let process = Process()
         process.executableURL = URL(fileURLWithPath: runtime.executable)
-        process.arguments = jvmArgs + [version.mainClass] + gameArgs
+        process.arguments = jvmArgs + [mainClass] + gameArgs
         process.currentDirectoryURL = instance.gameDir
 
         return try GameSession(process: process, onLog: onLog)

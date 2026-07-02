@@ -28,6 +28,18 @@ final class CoreTests: XCTestCase {
         XCTAssertNil(RendererMode.safe.fallback)
     }
 
+    func testMavenPath() {
+        XCTAssertEqual(
+            LoaderProfileService.mavenPath("net.fabricmc:fabric-loader:0.16.9"),
+            "net/fabricmc/fabric-loader/0.16.9/fabric-loader-0.16.9.jar"
+        )
+        XCTAssertEqual(
+            LoaderProfileService.mavenPath("org.ow2.asm:asm:9.6:natives"),
+            "org/ow2/asm/asm/9.6/asm-9.6-natives.jar"
+        )
+        XCTAssertNil(LoaderProfileService.mavenPath("bad-coordinate"))
+    }
+
     func testSHA1() {
         XCTAssertEqual(SHA1.hex(of: Data("abc".utf8)), "a9993e364706816aba3e25717850c26c9cd0d89d")
     }

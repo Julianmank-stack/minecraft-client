@@ -39,6 +39,7 @@ final class AppState: ObservableObject {
     @Published var selectedSection: SidebarSection = .home
     @Published var presentNewInstance = false
     @Published var presentLogin = false
+    @Published var customizingInstance: Instance?
 
     // Data
     @Published var account: MinecraftAccount?
