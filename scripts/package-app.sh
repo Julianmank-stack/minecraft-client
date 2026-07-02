@@ -36,11 +36,19 @@ echo "▸ Code signing (ad-hoc)…"
 codesign --force --deep --sign - "$APP"
 
 if [[ "${1:-}" == "--install" ]]; then
-    echo "▸ Installing to /Applications…"
-    rm -rf "/Applications/MetalCraft.app"
-    cp -R "$APP" /Applications/
-    echo "✓ Installed. Launch it from Spotlight (⌘Space → MetalCraft) or /Applications."
-    open -R "/Applications/MetalCraft.app"
+    # /Applications needs admin rights; fall back to ~/Applications otherwise.
+    DEST="/Applications"
+    if [[ ! -w "$DEST" ]]; then
+        DEST="$HOME/Applications"
+        mkdir -p "$DEST"
+        echo "▸ /Applications is not writable — installing to $DEST instead…"
+    else
+        echo "▸ Installing to $DEST…"
+    fi
+    rm -rf "$DEST/MetalCraft.app"
+    cp -R "$APP" "$DEST/"
+    echo "✓ Installed. Launch it from Spotlight (⌘Space → MetalCraft) or $DEST."
+    open -R "$DEST/MetalCraft.app"
 else
     echo "✓ Built $APP"
     echo "  Drag it into /Applications, or re-run with --install."
