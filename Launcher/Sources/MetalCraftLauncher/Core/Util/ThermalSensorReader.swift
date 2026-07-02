@@ -57,7 +57,9 @@ final class ThermalSensorReader: @unchecked Sendable {
         guard let clientCreate, let setMatching, let copyServices,
               let copyProperty, let copyEvent, let getFloat,
               let client = clientCreate(kCFAllocatorDefault) else { return nil }
-        defer { CFRelease(unsafeBitCast(client, to: CFTypeRef.self)) }
+        // The client comes back +1 from a Create function; CFRelease is
+        // unavailable in Swift, so release through Unmanaged.
+        defer { Unmanaged<AnyObject>.fromOpaque(client).release() }
 
         // AppleVendor usage page, usage 5 = temperature sensors.
         let matching = [
