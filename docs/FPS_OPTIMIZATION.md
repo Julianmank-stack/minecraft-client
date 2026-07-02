@@ -38,6 +38,37 @@ JVM argument sets are built by `OptimizationEngine.jvmArguments(for:)` — see
 `Launcher/.../Optimization/OptimizationEngine.swift`. Users can override any of it
 per instance; overrides are diffed against the preset so "Reset to preset" is exact.
 
+## One-click performance mod stack
+
+The Optimization Center lists a curated, Sodium-compatible mod stack and installs
+whatever is missing with one click (`PerformanceModInstaller`). Each mod targets a
+different bottleneck, so the full set composes without conflicts:
+
+| Mod | Bottleneck it attacks |
+|-----|----------------------|
+| Sodium | Chunk rendering (biggest single win) |
+| Lithium | Game-tick logic: AI, physics, block ticking |
+| FerriteCore | Memory footprint → less GC pressure, fewer stutters |
+| Krypton | Network stack (multiplayer smoothness) |
+| Entity Culling | Skips entities hidden behind walls |
+| More Culling | Hidden block faces, item models, leaves |
+| ImmediatelyFast | HUD/GUI immediate-mode rendering |
+| ModernFix | Broad fixes + launch time |
+| Dynamic FPS | Idles when unfocused → preserves thermal headroom |
+| C2ME | Multithreaded chunk load/gen across all cores |
+| BadOptimizations | Lighting/time/random-tick micro-optimizations |
+| Enhanced Block Entities | Chests/signs through the fast chunk path |
+
+Rules:
+
+- Fabric/Quilt only (Quilt falls back to Fabric-tagged builds — Quilt loads them).
+- Version resolution is per-instance (`game_versions` facet), SHA-1 verified.
+- Already-installed detection is filename-prefix based; known libraries
+  (Fabric API, Cloth Config, YACL) are never duplicated across versions since
+  duplicate mod IDs crash the loader.
+- Mods without a build for the instance's Minecraft version are reported, not
+  force-installed.
+
 ## Benchmark system
 
 - **Scenario**: launches the instance with `metalcraft.benchmark=true`; the engine

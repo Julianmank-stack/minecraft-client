@@ -6,6 +6,8 @@ struct OptimizationCenterView: View {
     @EnvironmentObject private var appState: AppState
     @State private var showMetalWarning = false
     @State private var pendingMode: RendererMode?
+    @State private var modInstallBusy = false
+    @State private var modInstallStatus: String?
 
     var body: some View {
         if let instance = appState.selectedInstance {
@@ -24,6 +26,7 @@ struct OptimizationCenterView: View {
             VStack(alignment: .leading, spacing: 20) {
                 header(instance)
                 presetRow(instance)
+                performanceModsSection(instance)
                 thermalSection(instance)
                 rendererPicker(instance)
                 memorySection(instance)
@@ -170,6 +173,99 @@ struct OptimizationCenterView: View {
             .opacity(availability.available ? 1 : 0.45)
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: - Performance mods
+
+    /// The curated Sodium-compatible mod stack with one-click install of
+    /// whatever's missing. Each mod attacks a different bottleneck, so the
+    /// full set composes without conflicts.
+    private func performanceModsSection(_ instance: Instance) -> some View {
+        let supported = instance.loader.type == .fabric || instance.loader.type == .quilt
+        let jars = PerformanceModInstaller.installedJarNames(in: instance)
+        let missing = PerformanceModInstaller.curated.filter {
+            !PerformanceModInstaller.isInstalled($0, jarNames: jars)
+        }
+
+        return GlassCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Performance Mods").font(.headline)
+                    Spacer()
+                    if supported {
+                        if modInstallBusy {
+                            ProgressView().controlSize(.small)
+                        }
+                        Button(missing.isEmpty
+                               ? "All installed"
+                               : "Install \(missing.count) missing") {
+                            Task { await installMissingMods(instance) }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(modInstallBusy || missing.isEmpty)
+                    }
+                }
+
+                if supported {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 250), spacing: 10)],
+                              alignment: .leading, spacing: 8) {
+                        ForEach(PerformanceModInstaller.curated) { mod in
+                            let installed = PerformanceModInstaller.isInstalled(mod, jarNames: jars)
+                            HStack(alignment: .top, spacing: 8) {
+                                Image(systemName: installed ? "checkmark.circle.fill" : "arrow.down.circle")
+                                    .foregroundStyle(installed ? .green : .secondary)
+                                    .padding(.top, 1)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(mod.name).font(.callout.weight(.semibold))
+                                    Text(mod.purpose)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                        }
+                    }
+
+                    if instance.renderer.mode == .metalExperimental {
+                        Label("Sodium-style mods are incompatible with the Experimental Metal renderer — switch back to OpenGL before installing.",
+                              systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+
+                    if let modInstallStatus {
+                        Text(modInstallStatus)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Text("These mods need Fabric or Quilt. Create a Fabric instance to install the stack with one click — it's the biggest FPS lever available.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private func installMissingMods(_ instance: Instance) async {
+        modInstallBusy = true
+        defer { modInstallBusy = false }
+        do {
+            let installer = PerformanceModInstaller(api: appState.modrinth)
+            let summary = try await installer.installMissing(into: instance) { detail in
+                Task { @MainActor in modInstallStatus = detail }
+            }
+            var parts: [String] = []
+            if !summary.installed.isEmpty {
+                parts.append("Installed: \(summary.installed.joined(separator: ", "))")
+            }
+            if !summary.unavailable.isEmpty {
+                parts.append("No build for \(instance.minecraftVersion) yet: \(summary.unavailable.joined(separator: ", "))")
+            }
+            modInstallStatus = parts.isEmpty ? "Everything is already installed." : parts.joined(separator: " · ")
+        } catch {
+            modInstallStatus = "Install failed: \(error.localizedDescription)"
+        }
     }
 
     private func thermalSection(_ instance: Instance) -> some View {
