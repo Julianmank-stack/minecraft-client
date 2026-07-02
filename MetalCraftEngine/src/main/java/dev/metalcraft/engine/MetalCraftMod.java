@@ -3,7 +3,6 @@ package dev.metalcraft.engine;
 import dev.metalcraft.engine.backend.BackendSelector;
 import dev.metalcraft.engine.backend.RenderBackend;
 import dev.metalcraft.engine.config.EngineConfig;
-import dev.metalcraft.engine.hud.HudManager;
 import dev.metalcraft.engine.safety.CrashSentinel;
 import dev.metalcraft.engine.safety.RendererLog;
 import net.fabricmc.api.ClientModInitializer;
@@ -27,12 +26,8 @@ public final class MetalCraftMod implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        // HUD + R-Shift mod menu work on every platform.
-        HudManager.INSTANCE.register();
-
-        // The rendering backend is macOS-only.
         if (!System.getProperty("os.name", "").contains("Mac")) {
-            RendererLog.info("Not running on macOS — MetalCraft renderer is passive (HUD still active).");
+            RendererLog.info("Not running on macOS — MetalCraft Engine is passive.");
             return;
         }
 

@@ -71,23 +71,6 @@ Full design: [`docs/METALCRAFT_ENGINE.md`](docs/METALCRAFT_ENGINE.md).
 | Experimental Metal Renderer | Compatible Macs only | Native Metal subsystem takeover, auto-fallback |
 | Safe Mode | Always | Everything off; maximum compatibility |
 
-## In-game mod menu (Right Shift)
-
-Press **Right Shift** in-game to open the MetalCraft box menu — a translucent
-panel with toggleable HUD modules, each drawn as a small accent-edged box that
-you can drag anywhere on screen:
-
-| Module | Shows |
-|--------|-------|
-| **FPS** | current frames per second |
-| **Ping** | your latency to the server (— in singleplayer) |
-| **CPS (Left)** | left-clicks per second |
-| **CPS (Right)** | right-clicks per second |
-
-More modules (keystrokes, coordinates, memory, …) plug into the same
-`HudModule` base class. Toggle state and box positions persist in
-`config/metalcraft-hud.json`.
-
 ## Installing as a Mac app
 
 One command on your Mac (needs Xcode 15+ or Command Line Tools with Swift):

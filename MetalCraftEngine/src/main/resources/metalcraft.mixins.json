@@ -4,8 +4,7 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "MixinWindowSwap",
-    "MixinChunkUpload",
-    "MixinMouse"
+    "MixinChunkUpload"
   ],
   "injectors": {
     "defaultRequire": 0
