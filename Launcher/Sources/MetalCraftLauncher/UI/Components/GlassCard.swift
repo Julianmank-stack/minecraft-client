@@ -45,9 +45,11 @@ struct StatBadge: View {
     }
 }
 
-/// Live macOS thermal-pressure chip (nominal → critical).
+/// Live macOS thermal-pressure chip (nominal → critical), with the real CPU
+/// die temperature next to it when the sensor interface is available.
 struct ThermalBadge: View {
     let state: ProcessInfo.ThermalState
+    var reading: ThermalSensorReader.Reading?
 
     private var info: (label: String, icon: String, tint: Color) {
         switch state {
@@ -59,14 +61,34 @@ struct ThermalBadge: View {
         }
     }
 
+    private var label: String {
+        if let temp = reading?.cpuC ?? reading?.hottestC {
+            "\(info.label) · \(Int(temp.rounded()))°"
+        } else {
+            info.label
+        }
+    }
+
     var body: some View {
-        Label(info.label, systemImage: info.icon)
-            .font(.caption.weight(.semibold))
+        Label(label, systemImage: info.icon)
+            .font(.caption.weight(.semibold).monospacedDigit())
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(Capsule().fill(info.tint.opacity(0.16)))
             .foregroundStyle(info.tint)
-            .help("macOS thermal pressure — Thermal Guard reacts to Hot and Critical")
+            .help(helpText)
+    }
+
+    private var helpText: String {
+        var text = "macOS thermal pressure — Thermal Guard reacts to Hot and Critical"
+        if let reading {
+            var parts: [String] = []
+            if let cpu = reading.cpuC { parts.append("CPU \(Int(cpu.rounded()))°C") }
+            if let gpu = reading.gpuC { parts.append("GPU \(Int(gpu.rounded()))°C") }
+            if parts.isEmpty { parts.append("Hottest sensor \(Int(reading.hottestC.rounded()))°C") }
+            text += "\n" + parts.joined(separator: " · ")
+        }
+        return text
     }
 }
 

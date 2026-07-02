@@ -53,6 +53,8 @@ final class AppState: ObservableObject {
     @Published var lastCrashDiagnosis: CrashDiagnosis?
     @Published var hardware: HardwareReport = .current()
     @Published var thermalState: ProcessInfo.ThermalState = ProcessInfo.processInfo.thermalState
+    /// Real die temperatures (nil on Macs where the sensor interface is unavailable).
+    @Published var sensorReading: ThermalSensorReader.Reading?
 
     // Services
     let keychain = KeychainStore()
@@ -67,6 +69,7 @@ final class AppState: ObservableObject {
     let pinger = ServerPinger()
     let skins = SkinManager()
     let crashAnalyzer = CrashAnalyzer()
+    private let sensorReader = ThermalSensorReader()
 
     var selectedInstance: Instance? {
         instances.first { $0.id == selectedInstanceID } ?? instances.first
@@ -87,6 +90,7 @@ final class AppState: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor in self?.thermalState = ProcessInfo.processInfo.thermalState }
         }
+        startSensorPolling()
         do {
             try Paths.ensureDirectories()
             instances = try instanceStore.loadAll()
@@ -96,6 +100,20 @@ final class AppState: ObservableObject {
             presentLogin = (account == nil)
         } catch {
             liveLogLines.append(.launcher("Bootstrap failed: \(error.localizedDescription)"))
+        }
+    }
+
+    /// Polls die temperatures every 5 s. The sweep itself runs off the main
+    /// actor (~1 ms); only the published value lands back here.
+    private func startSensorPolling() {
+        let reader = sensorReader
+        Task { [weak self] in
+            while !Task.isCancelled {
+                let reading = await Task.detached(priority: .utility) { reader.read() }.value
+                guard let self else { return }
+                if reading != self.sensorReading { self.sensorReading = reading }
+                try? await Task.sleep(for: .seconds(5))
+            }
         }
     }
 

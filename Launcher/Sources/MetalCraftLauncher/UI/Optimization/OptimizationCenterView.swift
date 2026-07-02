@@ -274,7 +274,23 @@ struct OptimizationCenterView: View {
                 HStack {
                     Text("Heat & Frame Cap").font(.headline)
                     Spacer()
-                    ThermalBadge(state: appState.thermalState)
+                    ThermalBadge(state: appState.thermalState, reading: appState.sensorReading)
+                }
+
+                if let reading = appState.sensorReading {
+                    HStack(spacing: 14) {
+                        if let cpu = reading.cpuC {
+                            Label("CPU \(Int(cpu.rounded()))°C", systemImage: "cpu")
+                        }
+                        if let gpu = reading.gpuC {
+                            Label("GPU \(Int(gpu.rounded()))°C", systemImage: "display")
+                        }
+                        if reading.cpuC == nil && reading.gpuC == nil {
+                            Label("Hottest sensor \(Int(reading.hottestC.rounded()))°C", systemImage: "thermometer.medium")
+                        }
+                    }
+                    .font(.callout.weight(.medium).monospacedDigit())
+                    .foregroundStyle(.secondary)
                 }
 
                 Toggle("Cap frame rate", isOn: Binding(

@@ -96,7 +96,7 @@ struct DashboardView: View {
                 value: appState.hardware.gpuName,
                 tint: .purple
             )
-            ThermalBadge(state: appState.thermalState)
+            ThermalBadge(state: appState.thermalState, reading: appState.sensorReading)
             Spacer()
         }
     }
