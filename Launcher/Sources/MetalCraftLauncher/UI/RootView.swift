@@ -2,13 +2,22 @@ import SwiftUI
 
 struct RootView: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var theme: ThemeStore
 
     var body: some View {
         HStack(spacing: 0) {
             SidebarView()
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(nsColor: .windowBackgroundColor))
+                .background {
+                    ZStack {
+                        Color(nsColor: .windowBackgroundColor)
+                        if theme.funEffects {
+                            AuroraBackground(palette: theme.palette)
+                        }
+                    }
+                    .ignoresSafeArea()
+                }
         }
         .sheet(isPresented: $appState.presentLogin) {
             LoginView()
@@ -19,7 +28,10 @@ struct RootView: View {
         .sheet(item: $appState.customizingInstance) { instance in
             CustomizeInstanceSheet(instance: instance)
         }
-        .preferredColorScheme(nil)   // follow system; dark-mode-first design
+        .tint(theme.palette.accent)
+        .accentColor(theme.palette.accent)
+        .preferredColorScheme(theme.preferredColorScheme)
+        .animation(.easeInOut(duration: 0.4), value: theme.scheme)
     }
 
     @ViewBuilder

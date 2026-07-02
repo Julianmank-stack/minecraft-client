@@ -4,6 +4,7 @@ import SwiftUI
 /// in the user's browser — never in this app.
 struct LoginView: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var theme: ThemeStore
     @Environment(\.dismiss) private var dismiss
 
     @State private var deviceCode: MicrosoftAuthService.DeviceCode?
@@ -14,7 +15,8 @@ struct LoginView: View {
         VStack(spacing: 20) {
             Image(systemName: "cube.transparent")
                 .font(.system(size: 44))
-                .foregroundStyle(Color.accentColor)
+                .gradientForeground(theme.palette)
+                .glowPulse(theme.palette.accent, enabled: theme.funEffects)
 
             Text("Sign in to Minecraft")
                 .font(.system(.title2, design: .rounded).weight(.bold))

@@ -3,11 +3,13 @@ import SwiftUI
 @main
 struct MetalCraftLauncherApp: App {
     @StateObject private var appState = AppState()
+    @StateObject private var theme = ThemeStore()
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(appState)
+                .environmentObject(theme)
                 .frame(minWidth: 980, minHeight: 640)
                 .task { await appState.bootstrap() }
         }
@@ -36,7 +38,11 @@ struct MetalCraftLauncherApp: App {
         }
 
         Settings {
-            SettingsView().environmentObject(appState)
+            SettingsView()
+                .environmentObject(appState)
+                .environmentObject(theme)
+                .tint(theme.palette.accent)
+                .preferredColorScheme(theme.preferredColorScheme)
         }
     }
 }

@@ -4,11 +4,14 @@ import SwiftUI
 /// account avatar pinned at the bottom.
 struct SidebarView: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var theme: ThemeStore
+    @Namespace private var selectionPill
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("MetalCraft")
                 .font(.system(.title3, design: .rounded).weight(.bold))
+                .gradientForeground(theme.palette)
                 .padding(.top, 40)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
@@ -41,15 +44,19 @@ struct SidebarView: View {
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(appState.selectedSection == section ? Color.accentColor.opacity(0.18) : .clear)
-            )
-            .foregroundStyle(appState.selectedSection == section ? Color.accentColor : .primary)
+            .background {
+                if appState.selectedSection == section {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(theme.palette.gradient.opacity(0.22))
+                        .matchedGeometryEffect(id: "sidebar-pill", in: selectionPill)
+                }
+            }
+            .foregroundStyle(appState.selectedSection == section ? theme.palette.accent : .primary)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 8)
+        .hoverLift(scale: 1.015)
     }
 
     private var accountFooter: some View {

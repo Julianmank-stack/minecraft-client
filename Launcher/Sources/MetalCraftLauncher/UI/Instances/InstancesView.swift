@@ -131,6 +131,7 @@ struct LargeInstanceCard: View {
                 }
             }
         }
+        .hoverLift()
         .onTapGesture { appState.selectedInstanceID = instance.id }
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)

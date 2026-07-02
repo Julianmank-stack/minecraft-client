@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DashboardView: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var theme: ThemeStore
 
     var body: some View {
         ScrollView {
@@ -15,6 +16,11 @@ struct DashboardView: View {
                 quickButtons
             }
             .padding(24)
+        }
+        .background {
+            if theme.funEffects {
+                PixelParticles(palette: theme.palette)
+            }
         }
         .navigationTitle("Home")
     }
@@ -154,6 +160,7 @@ struct DashboardView: View {
 /// preparing and a "Running" state while the game is up.
 struct PlayButton: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var theme: ThemeStore
 
     var body: some View {
         Button {
@@ -182,17 +189,17 @@ struct PlayButton: View {
             .background(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(
-                        LinearGradient(
-                            colors: appState.launchState.isBusy
-                                ? [.gray.opacity(0.7), .gray]
-                                : [Color.accentColor, Color.accentColor.opacity(0.7)],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        )
+                        appState.launchState.isBusy
+                            ? LinearGradient(colors: [.gray.opacity(0.7), .gray],
+                                             startPoint: .topLeading, endPoint: .bottomTrailing)
+                            : theme.palette.gradient
                     )
-                    .shadow(color: Color.accentColor.opacity(0.4), radius: 12, y: 4)
             )
+            .glowPulse(theme.palette.accent,
+                       enabled: theme.funEffects && !appState.launchState.isBusy)
         }
         .buttonStyle(.plain)
+        .hoverLift(scale: 1.04)
         .disabled(appState.launchState.isBusy || appState.selectedInstance == nil)
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: appState.launchState.isBusy)
         .keyboardShortcut(.return, modifiers: .command)
@@ -220,6 +227,7 @@ struct InstanceCard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .hoverLift()
         .onTapGesture {
             appState.selectedInstanceID = instance.id
         }
