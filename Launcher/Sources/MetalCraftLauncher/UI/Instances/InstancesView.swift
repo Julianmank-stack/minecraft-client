@@ -192,13 +192,25 @@ struct NewInstanceSheet: View {
                 Spacer()
                 Button("Cancel") { dismiss() }
                 Button("Create") {
-                    let instance = try? appState.instanceStore.create(
+                    if var instance = try? appState.instanceStore.create(
                         name: name.isEmpty ? "Minecraft \(version)" : name,
                         minecraftVersion: version,
                         loader: .init(type: loaderType, version: nil)
-                    )
+                    ) {
+                        // New instances start on the hardware-recommended
+                        // performance profile instead of untuned JVM defaults.
+                        instance = appState.optimization.apply(
+                            profile: appState.optimization.recommendedProfile(),
+                            to: instance,
+                            rendererManager: appState.rendererManager
+                        )
+                        if instance.renderer.mode == .metalExperimental {
+                            instance.renderer.mode = .appleSiliconMax   // never auto-enable experimental
+                        }
+                        try? appState.instanceStore.save(instance)
+                        appState.selectedInstanceID = instance.id
+                    }
                     appState.instances = (try? appState.instanceStore.loadAll()) ?? []
-                    appState.selectedInstanceID = instance?.id
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)

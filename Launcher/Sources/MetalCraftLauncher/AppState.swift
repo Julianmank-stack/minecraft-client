@@ -72,6 +72,15 @@ final class AppState: ObservableObject {
         instances.first { $0.id == selectedInstanceID } ?? instances.first
     }
 
+    /// Bounded log buffer: long sessions with chatty mods would otherwise grow
+    /// the array (and LogsView work) without limit.
+    func appendLog(_ line: LogLine) {
+        liveLogLines.append(line)
+        if liveLogLines.count > 2500 {
+            liveLogLines.removeFirst(1000)
+        }
+    }
+
     func bootstrap() async {
         NotificationCenter.default.addObserver(
             forName: ProcessInfo.thermalStateDidChangeNotification, object: nil, queue: .main
@@ -95,8 +104,8 @@ final class AppState: ObservableObject {
         guard let account else { presentLogin = true; return }
 
         // FPS cap + Thermal Guard: tighten the cap when macOS already reports
-        // thermal pressure, so a hot chassis doesn't throttle mid-game.
-        let guardOn = instance.thermalGuard ?? true
+        // thermal pressure. Opt-in — uncapped players stay uncapped.
+        let guardOn = instance.thermalGuard ?? false
         let isHot = thermalState == .serious || thermalState == .critical
         let optionsPatch: OptionsPatcher.Patch
         if guardOn && isHot {
@@ -116,7 +125,7 @@ final class AppState: ObservableObject {
             ) { [weak self] progress, detail in
                 Task { @MainActor in self?.launchState = .preparing(progress: progress, detail: detail) }
             } onLog: { [weak self] line in
-                Task { @MainActor in self?.liveLogLines.append(.game(line)) }
+                Task { @MainActor in self?.appendLog(.game(line)) }
             }
             launchState = .running(session)
             Notifier.post(title: "Minecraft is running", body: instance.name)

@@ -18,7 +18,7 @@ struct DashboardView: View {
             .padding(24)
         }
         .background {
-            if theme.funEffects {
+            if theme.funEffects && !appState.launchState.isBusy {
                 PixelParticles(palette: theme.palette)
             }
         }

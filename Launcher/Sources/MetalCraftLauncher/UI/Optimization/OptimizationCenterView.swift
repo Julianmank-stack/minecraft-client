@@ -204,8 +204,8 @@ struct OptimizationCenterView: View {
                     .pickerStyle(.segmented)
                 }
 
-                Toggle("Thermal Guard — cap at 120 FPS when this Mac launches hot", isOn: Binding(
-                    get: { instance.thermalGuard ?? true },
+                Toggle("Thermal Guard — cap at 120 FPS when this Mac launches hot (off = never cap)", isOn: Binding(
+                    get: { instance.thermalGuard ?? false },
                     set: { on in
                         var updated = instance
                         updated.thermalGuard = on

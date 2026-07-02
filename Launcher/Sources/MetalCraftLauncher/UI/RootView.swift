@@ -12,7 +12,9 @@ struct RootView: View {
                 .background {
                     ZStack {
                         Color(nsColor: .windowBackgroundColor)
-                        if theme.funEffects {
+                        // Ambient animation pauses while the game runs so the
+                        // launcher takes zero GPU/CPU away from Minecraft.
+                        if theme.funEffects && !appState.launchState.isBusy {
                             AuroraBackground(palette: theme.palette)
                         }
                     }

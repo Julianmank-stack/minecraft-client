@@ -57,35 +57,52 @@ final class OptimizationEngine {
                 "-XX:+UseG1GC",
                 "-XX:MaxGCPauseMillis=50",
                 "-XX:G1HeapRegionSize=16M",
+                "-XX:+ParallelRefProcEnabled",
                 "-XX:+PerfDisableSharedMem"
             ]
         case .balanced, .shaderFriendly:
+            // Aikar-style G1 tuning adapted for clients: short pauses, early
+            // mixed collections, no survivor churn.
             return [
                 "-XX:+UseG1GC",
                 "-XX:MaxGCPauseMillis=37",
+                "-XX:+ParallelRefProcEnabled",
+                "-XX:+DisableExplicitGC",
                 "-XX:G1HeapRegionSize=16M",
-                "-XX:G1NewSizePercent=23",
+                "-XX:G1NewSizePercent=28",
+                "-XX:G1MaxNewSizePercent=40",
                 "-XX:G1ReservePercent=20",
+                "-XX:G1HeapWastePercent=5",
+                "-XX:G1MixedGCCountTarget=4",
+                "-XX:InitiatingHeapOccupancyPercent=15",
                 "-XX:SurvivorRatio=32",
+                "-XX:MaxTenuringThreshold=1",
+                "-XX:+UseStringDeduplication",
                 "-XX:+PerfDisableSharedMem",
                 "-XX:+AlwaysPreTouch"
             ]
         case .maxFPS:
-            // ZGC shines with larger heaps on many-core Apple Silicon.
+            // Generational ZGC: sub-millisecond pauses, ideal on many-core
+            // Apple Silicon with a decent heap. Plus a bigger JIT code cache
+            // and LWJGL parameter-check elision.
             var args = [
                 "-XX:+UseZGC",
                 "-XX:+ZGenerational",
                 "-XX:+AlwaysPreTouch",
+                "-XX:+UseStringDeduplication",
                 "-XX:+PerfDisableSharedMem",
-                "-XX:ReservedCodeCacheSize=400M"
+                "-XX:ReservedCodeCacheSize=400M",
+                "-Dorg.lwjgl.util.NoChecks=true"
             ]
             if ramMB < 4096 {
                 // ZGC needs headroom; fall back to tuned G1 on small heaps.
                 args = [
                     "-XX:+UseG1GC",
                     "-XX:MaxGCPauseMillis=25",
+                    "-XX:+ParallelRefProcEnabled",
                     "-XX:+AlwaysPreTouch",
-                    "-XX:+PerfDisableSharedMem"
+                    "-XX:+PerfDisableSharedMem",
+                    "-Dorg.lwjgl.util.NoChecks=true"
                 ]
             }
             return args
