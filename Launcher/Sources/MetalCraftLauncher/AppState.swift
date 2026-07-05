@@ -55,6 +55,10 @@ final class AppState: ObservableObject {
     @Published var thermalState: ProcessInfo.ThermalState = ProcessInfo.processInfo.thermalState
     /// Real die temperatures (nil on Macs where the sensor interface is unavailable).
     @Published var sensorReading: ThermalSensorReader.Reading?
+    /// Set when the data folder was migrated from a different Mac — instances
+    /// still carry heap sizes/JVM args computed for the old hardware.
+    /// Holds a description of the previous machine (e.g. "Apple M2 · 16 GB").
+    @Published var previousMacDescription: String?
 
     // Services
     let keychain = KeychainStore()
@@ -98,9 +102,64 @@ final class AppState: ObservableObject {
             servers = (try? serverStore.load()) ?? []
             account = try? await auth.restoreSession()
             presentLogin = (account == nil)
+            checkForHardwareChange()
         } catch {
             liveLogLines.append(.launcher("Bootstrap failed: \(error.localizedDescription)"))
         }
+    }
+
+    // MARK: - Hardware migration
+
+    private struct StoredHardware: Codable {
+        var physicalMemoryMB: Int
+        var gpuName: String
+    }
+
+    /// Compares this Mac against the fingerprint stored in launcher.json
+    /// (which migrates with the data folder). On a mismatch the dashboard
+    /// offers a one-click re-tune; the fingerprint is only rewritten once the
+    /// user acts, so the offer survives restarts.
+    private func checkForHardwareChange() {
+        let stored = (try? Data(contentsOf: Paths.launcherSettings))
+            .flatMap { try? JSONDecoder().decode(StoredHardware.self, from: $0) }
+        guard let stored else {
+            saveHardwareFingerprint()
+            return
+        }
+        if (stored.physicalMemoryMB != hardware.physicalMemoryMB || stored.gpuName != hardware.gpuName),
+           !instances.isEmpty {
+            previousMacDescription = "\(stored.gpuName) · \(stored.physicalMemoryMB / 1024) GB"
+        }
+    }
+
+    private func saveHardwareFingerprint() {
+        let current = StoredHardware(physicalMemoryMB: hardware.physicalMemoryMB, gpuName: hardware.gpuName)
+        try? JSONEncoder().encode(current).write(to: Paths.launcherSettings)
+    }
+
+    /// Re-applies each instance's own performance profile so RAM allocation
+    /// and JVM args are recomputed for this machine's hardware.
+    func retuneInstancesForCurrentHardware() {
+        for instance in instances {
+            var updated = optimization.apply(
+                profile: instance.performanceProfile, to: instance, rendererManager: rendererManager
+            )
+            if updated.renderer.mode == .metalExperimental {
+                updated.renderer.mode = .appleSiliconMax   // never auto-enable experimental
+            }
+            try? instanceStore.save(updated)
+        }
+        instances = (try? instanceStore.loadAll()) ?? instances
+        saveHardwareFingerprint()
+        previousMacDescription = nil
+        appendLog(.launcher(
+            "Re-tuned \(instances.count) instance(s) for \(hardware.gpuName) with \(hardware.physicalMemoryMB / 1024) GB RAM"
+        ))
+    }
+
+    func keepMigratedTuning() {
+        saveHardwareFingerprint()
+        previousMacDescription = nil
     }
 
     /// Polls die temperatures every 5 s. The sweep itself runs off the main

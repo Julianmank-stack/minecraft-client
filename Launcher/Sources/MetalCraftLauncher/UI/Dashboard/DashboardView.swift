@@ -9,6 +9,9 @@ struct DashboardView: View {
             VStack(alignment: .leading, spacing: 20) {
                 heroRow
                 statusStrip
+                if let previousMac = appState.previousMacDescription {
+                    newMacBanner(previousMac)
+                }
                 if let diagnosis = appState.lastCrashDiagnosis {
                     crashAlert(diagnosis)
                 }
@@ -98,6 +101,32 @@ struct DashboardView: View {
             )
             ThermalBadge(state: appState.thermalState, reading: appState.sensorReading)
             Spacer()
+        }
+    }
+
+    // MARK: - New Mac banner
+
+    /// Shown when the data folder was migrated from different hardware:
+    /// heap sizes and JVM args in these instances were sized for the old Mac.
+    private func newMacBanner(_ previousMac: String) -> some View {
+        GlassCard {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "sparkles")
+                    .foregroundStyle(Color.accentColor)
+                    .font(.title3)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("New Mac detected").font(.headline)
+                    Text("These instances were tuned on \(previousMac). This Mac is a \(appState.hardware.gpuName) with \(appState.hardware.physicalMemoryMB / 1024) GB — re-tuning recalculates RAM allocation and JVM flags for it.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Re-tune for this Mac") { appState.retuneInstancesForCurrentHardware() }
+                    .buttonStyle(.borderedProminent)
+                Button("Keep as is") { appState.keepMigratedTuning() }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
