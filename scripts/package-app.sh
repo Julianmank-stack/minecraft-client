@@ -55,13 +55,15 @@ codesign --force --deep --sign - "$APP"
 
 if [[ "${1:-}" == "--install" ]]; then
     # /Applications needs admin rights; fall back to ~/Applications otherwise.
+    # Note: keep variable expansions away from multibyte characters — macOS
+    # bash 3.2 mis-parses "$VAR…" and dies with an 'unbound variable' error.
     DEST="/Applications"
     if [[ ! -w "$DEST" ]]; then
         DEST="$HOME/Applications"
         mkdir -p "$DEST"
-        echo "▸ /Applications is not writable — installing to $DEST instead…"
+        echo "* /Applications is not writable -- installing to ${DEST} instead..."
     else
-        echo "▸ Installing to $DEST…"
+        echo "* Installing to ${DEST}..."
     fi
     rm -rf "$DEST/MetalCraft.app"
     cp -R "$APP" "$DEST/"
