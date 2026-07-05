@@ -14,6 +14,24 @@ if [[ "$(uname)" != "Darwin" ]]; then
     exit 1
 fi
 
+# Recent macOS SDKs implement SwiftUI property wrappers (@State etc.) as
+# compiler macro plugins that ship with full Xcode but NOT the Command Line
+# Tools. If the active toolchain is the CLT, prefer an installed Xcode.
+if [[ -z "${DEVELOPER_DIR:-}" && "$(xcode-select -p 2>/dev/null)" == *CommandLineTools* ]]; then
+    for xc in /Applications/Xcode.app /Applications/Xcode-beta.app "$HOME/Applications/Xcode.app" "$HOME/Applications/Xcode-beta.app"; do
+        if [[ -d "$xc/Contents/Developer" ]]; then
+            export DEVELOPER_DIR="$xc/Contents/Developer"
+            echo "▸ Using toolchain from $xc (CLT lacks SwiftUI macro plugins)"
+            break
+        fi
+    done
+    if [[ -z "${DEVELOPER_DIR:-}" ]]; then
+        echo "note: only the Command Line Tools are installed. If the build fails with"
+        echo "      'SwiftUIMacros … plugin not found', install Xcode from the App Store"
+        echo "      (or unpack the .xip into ~/Applications) and re-run this script."
+    fi
+fi
+
 echo "▸ Building launcher (release)…"
 swift build -c release --package-path Launcher
 
